@@ -1,0 +1,1141 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "name": "GMAIL spam detection system",
+      "provenance": []
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "LLH-C8wP4wG2"
+      },
+      "source": [
+        "import nltk"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "l_L6RenV5HM-"
+      },
+      "source": [
+        "import numpy as np\n",
+        "import pandas as pd"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 357
+        },
+        "id": "IrT4mpgE5JTe",
+        "outputId": "daaa9c94-65cb-4b7d-8e2e-0ebce6dc3600"
+      },
+      "source": [
+        "dt = pd.read_csv(\"spam.csv\",encoding = 'unicode_escape')\n",
+        "dt.head(10)"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>type</th>\n",
+              "      <th>text</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>ham</td>\n",
+              "      <td>Go until jurong point, crazy.. Available only ...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>ham</td>\n",
+              "      <td>Ok lar... Joking wif u oni...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>2</th>\n",
+              "      <td>spam</td>\n",
+              "      <td>Free entry in 2 a wkly comp to win FA Cup fina...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3</th>\n",
+              "      <td>ham</td>\n",
+              "      <td>U dun say so early hor... U c already then say...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>4</th>\n",
+              "      <td>ham</td>\n",
+              "      <td>Nah I don't think he goes to usf, he lives aro...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>5</th>\n",
+              "      <td>spam</td>\n",
+              "      <td>FreeMsg Hey there darling it's been 3 week's n...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>6</th>\n",
+              "      <td>ham</td>\n",
+              "      <td>Even my brother is not like to speak with me. ...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>7</th>\n",
+              "      <td>ham</td>\n",
+              "      <td>As per your request 'Melle Melle (Oru Minnamin...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>8</th>\n",
+              "      <td>spam</td>\n",
+              "      <td>WINNER!! As a valued network customer you have...</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>9</th>\n",
+              "      <td>spam</td>\n",
+              "      <td>Had your mobile 11 months or more? U R entitle...</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "   type                                               text\n",
+              "0   ham  Go until jurong point, crazy.. Available only ...\n",
+              "1   ham                      Ok lar... Joking wif u oni...\n",
+              "2  spam  Free entry in 2 a wkly comp to win FA Cup fina...\n",
+              "3   ham  U dun say so early hor... U c already then say...\n",
+              "4   ham  Nah I don't think he goes to usf, he lives aro...\n",
+              "5  spam  FreeMsg Hey there darling it's been 3 week's n...\n",
+              "6   ham  Even my brother is not like to speak with me. ...\n",
+              "7   ham  As per your request 'Melle Melle (Oru Minnamin...\n",
+              "8  spam  WINNER!! As a valued network customer you have...\n",
+              "9  spam  Had your mobile 11 months or more? U R entitle..."
+            ]
+          },
+          "metadata": {},
+          "execution_count": 4
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 203
+        },
+        "id": "O5ahzXNL5PMQ",
+        "outputId": "78a7232e-62c1-4b15-a521-26df2f635033"
+      },
+      "source": [
+        "dt['spam'] = dt['type'].map( {'spam': 1, 'ham': 0} ).astype(int)\n",
+        "dt.head(5)"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>type</th>\n",
+              "      <th>text</th>\n",
+              "      <th>spam</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>ham</td>\n",
+              "      <td>Go until jurong point, crazy.. Available only ...</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>ham</td>\n",
+              "      <td>Ok lar... Joking wif u oni...</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>2</th>\n",
+              "      <td>spam</td>\n",
+              "      <td>Free entry in 2 a wkly comp to win FA Cup fina...</td>\n",
+              "      <td>1</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3</th>\n",
+              "      <td>ham</td>\n",
+              "      <td>U dun say so early hor... U c already then say...</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>4</th>\n",
+              "      <td>ham</td>\n",
+              "      <td>Nah I don't think he goes to usf, he lives aro...</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "   type                                               text  spam\n",
+              "0   ham  Go until jurong point, crazy.. Available only ...     0\n",
+              "1   ham                      Ok lar... Joking wif u oni...     0\n",
+              "2  spam  Free entry in 2 a wkly comp to win FA Cup fina...     1\n",
+              "3   ham  U dun say so early hor... U c already then say...     0\n",
+              "4   ham  Nah I don't think he goes to usf, he lives aro...     0"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 5
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "yP-YZ7ZW5Sjn",
+        "outputId": "10b24c26-4fcb-4770-cd88-788cd99c5934"
+      },
+      "source": [
+        "print(\"COLUMS IN THE GIVEN DATA:\")\n",
+        "for col in dt.columns:\n",
+        " print(col)\n"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "COLUMS IN THE GIVEN DATA:\n",
+            "type\n",
+            "text\n",
+            "spam\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "AcpKdKRe5Wwo",
+        "outputId": "18867397-c173-4cf0-e9c3-d19c7533ce74"
+      },
+      "source": [
+        "t=len(dt['type'])\n",
+        "print(\"NO OF ROWS IN REVIEW COLUMN:\",t)\n",
+        "t=len(dt['text'])\n",
+        "print(\"NO OF ROWS IN liked COLUMN:\",t)"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "NO OF ROWS IN REVIEW COLUMN: 116\n",
+            "NO OF ROWS IN liked COLUMN: 116\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 35
+        },
+        "id": "UDkxUB-A5Z-h",
+        "outputId": "01491a3f-161c-47cc-83f2-8aadddc484da"
+      },
+      "source": [
+        "dt['text'][1]#before"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "application/vnd.google.colaboratory.intrinsic+json": {
+              "type": "string"
+            },
+            "text/plain": [
+              "'Ok lar... Joking wif u oni...'"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 8
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "aSplcbrq5eLg"
+      },
+      "source": [
+        "def tokenizer(text):\n",
+        " return text.split()"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "lEbJrEFK5gvv"
+      },
+      "source": [
+        "dt['text']=dt['text'].apply(tokenizer)"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "Mu7BMnyj5jiZ",
+        "outputId": "729357d7-e8ea-4032-d1f1-eb41576a2a03"
+      },
+      "source": [
+        "dt['text'][1]#after\n"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "['Ok', 'lar...', 'Joking', 'wif', 'u', 'oni...']"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 11
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "vL_v9rkn5l2u",
+        "outputId": "812c2983-a0ec-47c7-e90f-ed074c096db2"
+      },
+      "source": [
+        "dt['text'][1]#before\n"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "['Ok', 'lar...', 'Joking', 'wif', 'u', 'oni...']"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 12
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "i5XggZiU5oM_"
+      },
+      "source": [
+        "from nltk.stem.snowball import SnowballStemmer\n",
+        "porter = SnowballStemmer(\"english\", ignore_stopwords=False)\n"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "ra72rEA85qov"
+      },
+      "source": [
+        "def stem_it(text):\n",
+        " return [porter.stem(word) for word in text]\n"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "2M8SbSmT5tCh"
+      },
+      "source": [
+        "dt['text']=dt['text'].apply(stem_it)"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "2mvB4e7T5vY2",
+        "outputId": "caf2bb8f-3ef2-40a7-893d-c4d512438177"
+      },
+      "source": [
+        "dt['text'][1] #after stemming"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "['ok', 'lar...', 'joke', 'wif', 'u', 'oni...']"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 16
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "BeR1nSzm5x_N",
+        "outputId": "52662f8c-92b9-4462-f852-0bd2304cc788"
+      },
+      "source": [
+        "dt['text'][104] #before"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "['wow.',\n",
+              " \"you'r\",\n",
+              " 'right!',\n",
+              " 'i',\n",
+              " \"didn't\",\n",
+              " 'mean',\n",
+              " 'to',\n",
+              " 'do',\n",
+              " 'that.',\n",
+              " 'i',\n",
+              " 'guess',\n",
+              " 'onc',\n",
+              " 'i',\n",
+              " 'gave',\n",
+              " 'up',\n",
+              " 'on',\n",
+              " 'boston',\n",
+              " 'men',\n",
+              " 'and',\n",
+              " 'chang',\n",
+              " 'my',\n",
+              " 'search',\n",
+              " 'locat',\n",
+              " 'to',\n",
+              " 'nyc,',\n",
+              " 'someth',\n",
+              " 'changed.',\n",
+              " 'cuz',\n",
+              " 'on',\n",
+              " 'my',\n",
+              " 'signin',\n",
+              " 'page',\n",
+              " 'it',\n",
+              " 'still',\n",
+              " 'say',\n",
+              " 'boston.']"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 17
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "sB-eTeRg50N2"
+      },
+      "source": [
+        "from nltk.stem import WordNetLemmatizer\n",
+        "lemmatizer = WordNetLemmatizer()"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "UrnewBsh53Vo"
+      },
+      "source": [
+        "def lemmit_it(text):\n",
+        " return [lemmatizer.lemmatize(word, pos =\"a\") for word in text]"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "wenZHtYI55uj",
+        "outputId": "6af21c91-b346-446c-ebdd-f86ef73ad5af"
+      },
+      "source": [
+        "nltk.download('wordnet')"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "[nltk_data] Downloading package wordnet to /root/nltk_data...\n",
+            "[nltk_data]   Unzipping corpora/wordnet.zip.\n"
+          ]
+        },
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "True"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 20
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "LcQw6RZ558N7"
+      },
+      "source": [
+        "dt['text']=dt['text'].apply(lemmit_it)"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "WCPF0_Xm5_Go",
+        "outputId": "7637a8f3-2717-41df-c67c-e1b67b41f101"
+      },
+      "source": [
+        "dt['text'][104] #before"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "['wow.',\n",
+              " \"you'r\",\n",
+              " 'right!',\n",
+              " 'i',\n",
+              " \"didn't\",\n",
+              " 'mean',\n",
+              " 'to',\n",
+              " 'do',\n",
+              " 'that.',\n",
+              " 'i',\n",
+              " 'guess',\n",
+              " 'onc',\n",
+              " 'i',\n",
+              " 'gave',\n",
+              " 'up',\n",
+              " 'on',\n",
+              " 'boston',\n",
+              " 'men',\n",
+              " 'and',\n",
+              " 'chang',\n",
+              " 'my',\n",
+              " 'search',\n",
+              " 'locat',\n",
+              " 'to',\n",
+              " 'nyc,',\n",
+              " 'someth',\n",
+              " 'changed.',\n",
+              " 'cuz',\n",
+              " 'on',\n",
+              " 'my',\n",
+              " 'signin',\n",
+              " 'page',\n",
+              " 'it',\n",
+              " 'still',\n",
+              " 'say',\n",
+              " 'boston.']"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 22
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "F-75WPQ96BMY",
+        "outputId": "f71e4b23-545c-4ecc-bc10-476bc5f99a58"
+      },
+      "source": [
+        "dt['text'][105] #before"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "['umma', 'my', 'life', 'and', 'vava', 'umma', 'love', 'you', 'lot', 'dear']"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 23
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "Q2UtGcop6GaA",
+        "outputId": "b777d4f3-30ec-4199-87d3-f125f7033551"
+      },
+      "source": [
+        "nltk.download('stopwords')"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "[nltk_data] Downloading package stopwords to /root/nltk_data...\n",
+            "[nltk_data]   Unzipping corpora/stopwords.zip.\n"
+          ]
+        },
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "True"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 24
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "cnRSMu_W6JNp"
+      },
+      "source": [
+        "from nltk.corpus import stopwords\n",
+        "#print(stopwords.words('english'))\n",
+        "#set(['a','t','d','y'])"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "-NwQasaP6LkQ"
+      },
+      "source": [
+        "from nltk.corpus import stopwords\n",
+        "stop_words = stopwords.words('english')"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "lTjiLbqy6Nd4"
+      },
+      "source": [
+        "def stop_it(text):\n",
+        " review = [word for word in text if not word in stop_words ]\n",
+        " return review"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "36_Iuhcf6O3y"
+      },
+      "source": [
+        "dt['text']=dt['text'].apply(stop_it)"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "VAaazO946QfI",
+        "outputId": "f5d35623-8986-494b-ff15-87242c19269e"
+      },
+      "source": [
+        "dt['text'][105] #after"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "['umma', 'life', 'vava', 'umma', 'love', 'lot', 'dear']"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 29
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 357
+        },
+        "id": "0sWGWVlT6R83",
+        "outputId": "2fae8ef3-a9bf-4ba9-e2f6-59c22e4a0eb9"
+      },
+      "source": [
+        "dt.head(10)\n"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>type</th>\n",
+              "      <th>text</th>\n",
+              "      <th>spam</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>ham</td>\n",
+              "      <td>[go, jurong, point,, crazy.., avail, onli, bug...</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>ham</td>\n",
+              "      <td>[ok, lar..., joke, wif, u, oni...]</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>2</th>\n",
+              "      <td>spam</td>\n",
+              "      <td>[free, entri, 2, wkli, comp, win, fa, cup, fin...</td>\n",
+              "      <td>1</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3</th>\n",
+              "      <td>ham</td>\n",
+              "      <td>[u, dun, say, earli, hor..., u, c, alreadi, sa...</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>4</th>\n",
+              "      <td>ham</td>\n",
+              "      <td>[nah, think, goe, usf,, live, around, though]</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>5</th>\n",
+              "      <td>spam</td>\n",
+              "      <td>[freemsg, hey, darl, 3, week, word, back!, i'd...</td>\n",
+              "      <td>1</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>6</th>\n",
+              "      <td>ham</td>\n",
+              "      <td>[even, brother, like, speak, me., treat, like,...</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>7</th>\n",
+              "      <td>ham</td>\n",
+              "      <td>[per, request, mell, mell, (oru, minnaminungin...</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>8</th>\n",
+              "      <td>spam</td>\n",
+              "      <td>[winner!!, valu, network, custom, select, rece...</td>\n",
+              "      <td>1</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>9</th>\n",
+              "      <td>spam</td>\n",
+              "      <td>[mobil, 11, month, more?, u, r, entitl, updat,...</td>\n",
+              "      <td>1</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "   type                                               text  spam\n",
+              "0   ham  [go, jurong, point,, crazy.., avail, onli, bug...     0\n",
+              "1   ham                 [ok, lar..., joke, wif, u, oni...]     0\n",
+              "2  spam  [free, entri, 2, wkli, comp, win, fa, cup, fin...     1\n",
+              "3   ham  [u, dun, say, earli, hor..., u, c, alreadi, sa...     0\n",
+              "4   ham      [nah, think, goe, usf,, live, around, though]     0\n",
+              "5  spam  [freemsg, hey, darl, 3, week, word, back!, i'd...     1\n",
+              "6   ham  [even, brother, like, speak, me., treat, like,...     0\n",
+              "7   ham  [per, request, mell, mell, (oru, minnaminungin...     0\n",
+              "8  spam  [winner!!, valu, network, custom, select, rece...     1\n",
+              "9  spam  [mobil, 11, month, more?, u, r, entitl, updat,...     1"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 30
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "t2ijiK8b6TpR"
+      },
+      "source": [
+        "dt['text']=dt['text'].apply(' '.join)\n"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 203
+        },
+        "id": "ErcCQs796VW5",
+        "outputId": "462d667d-6ec5-4f37-96b3-402132530ae0"
+      },
+      "source": [
+        "dt.head()"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>type</th>\n",
+              "      <th>text</th>\n",
+              "      <th>spam</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>ham</td>\n",
+              "      <td>go jurong point, crazy.. avail onli bugi n gre...</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>ham</td>\n",
+              "      <td>ok lar... joke wif u oni...</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>2</th>\n",
+              "      <td>spam</td>\n",
+              "      <td>free entri 2 wkli comp win fa cup final tkts 2...</td>\n",
+              "      <td>1</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3</th>\n",
+              "      <td>ham</td>\n",
+              "      <td>u dun say earli hor... u c alreadi say...</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>4</th>\n",
+              "      <td>ham</td>\n",
+              "      <td>nah think goe usf, live around though</td>\n",
+              "      <td>0</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "   type                                               text  spam\n",
+              "0   ham  go jurong point, crazy.. avail onli bugi n gre...     0\n",
+              "1   ham                        ok lar... joke wif u oni...     0\n",
+              "2  spam  free entri 2 wkli comp win fa cup final tkts 2...     1\n",
+              "3   ham          u dun say earli hor... u c alreadi say...     0\n",
+              "4   ham              nah think goe usf, live around though     0"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 32
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "aR35C3RH6W2_"
+      },
+      "source": [
+        "#Transform Text Data into TDF/TF-IDF Vectors"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "20tQFqns6ZWA"
+      },
+      "source": [
+        "from sklearn.feature_extraction.text import TfidfVectorizer\n",
+        "tfidf=TfidfVectorizer()\n",
+        "y=dt.spam.values\n",
+        "x=tfidf.fit_transform(dt['text'])"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "hGs9OoLR6bHi"
+      },
+      "source": [
+        "from sklearn.model_selection import train_test_split\n",
+        "x_train,x_text,y_train,y_text=train_test_split(x,y,random_state=1,test_size=0.2,shuffle=False)\n"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "cXeH6WuL6c44"
+      },
+      "source": [
+        "#Classification using Logistic Regression\n"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "GFJRmQb_6fAJ",
+        "outputId": "ccd63fa0-c21f-4973-9c7c-fde956b22ac1"
+      },
+      "source": [
+        "from sklearn.linear_model import LogisticRegression\n",
+        "clf=LogisticRegression()\n",
+        "clf.fit(x_train,y_train)\n",
+        "y_pred=clf.predict(x_text)\n",
+        "from sklearn.metrics import accuracy_score\n",
+        "acc_log = accuracy_score(y_pred, y_text)*100\n",
+        "print(\"accuracy:\",acc_log )"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "accuracy: 87.5\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "GExmt5_U6gfj"
+      },
+      "source": [
+        "#Classification using Linear SVC Accuracy"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "931wj_MQ6idy",
+        "outputId": "5a5eec80-ea65-440d-e1c1-d0471a6c9eaf"
+      },
+      "source": [
+        "from sklearn.svm import LinearSVC\n",
+        "linear_svc = LinearSVC(random_state=0)\n",
+        "linear_svc.fit(x_train, y_train)\n",
+        "y_pred = linear_svc.predict(x_text)\n",
+        "acc_linear_svc =accuracy_score(y_pred, y_text) * 100\n",
+        "print(\"accuracy:\",acc_linear_svc)"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "accuracy: 87.5\n"
+          ]
+        }
+      ]
+    }
+  ]
+}
